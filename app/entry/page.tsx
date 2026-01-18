@@ -276,7 +276,7 @@ export default function EntryPage() {
                         {/* Selfie Capture Section */}
                         <div className="border-2 border-dashed border-border rounded-lg p-6 bg-background/50">
                             <div className="flex flex-col items-center gap-4">
-                                <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                                <div className="relative w-28 h-28 rounded-full overflow-hidden border-4 border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
                                     {selfie && selfiePreviewUrl ? (
                                         <Image
                                             src={selfiePreviewUrl || "/placeholder.svg"}
