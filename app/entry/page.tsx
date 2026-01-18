@@ -303,7 +303,7 @@ export default function EntryPage() {
                                 <canvas ref={canvasRef} className="hidden" width="320" height="240" />
 
                                 {/* Status Text */}
-                                {isLoading && (
+                                {!isLoading && (
                                     <div className="text-center">
                                         {selfie ? (
                                             <div className="text-green-600 dark:text-green-400 font-medium">Photo Captured</div>
