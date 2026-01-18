@@ -3,7 +3,7 @@
 import type React from "react";
 import { useState, useRef } from "react";
 import { apiClient } from "@/lib/api-client";
-import { uploadToImageKit } from "@/lib/imagekit";
+import { uploadBlobToImageKit } from "@/lib/imagekit";
 import { getMockResponse } from "@/lib/mock-api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -149,16 +149,8 @@ export default function EntryPage() {
     const uploadSelfieToCloud = async (blob: Blob) => {
         setIsUploadingToImageKit(true);
         try {
-            // Create a file from the blob
-            const file = new File([blob], `selfie_${Date.now()}.jpg`, {
-                type: "image/jpeg",
-            });
-
-            // Generate file name
-            const fileName = `selfie_${Date.now()}.jpg`;
-
             // Upload to ImageKit
-            const res: any = await uploadToImageKit(file, fileName);
+            const res: any = await uploadBlobToImageKit(blob);
 
             // Return URL
             return res.url || "";
@@ -212,8 +204,8 @@ export default function EntryPage() {
             // RESET FORM
             setFormData(INITIAL_FORM_DATA);
 
-            // Clear success message after 3 seconds
-            setTimeout(() => setSuccess(""), 3000);
+            // Clear success message after 5 seconds
+            setTimeout(() => setSuccess(""), 5000);
         } catch (err) {
             console.error("Submit error:", err);
             setError(err instanceof Error ? err.message : "Something went wrong");
@@ -253,29 +245,29 @@ export default function EntryPage() {
             <div className="absolute top-4 right-4">
                 <ThemeToggle />
             </div>
-            <div className="max-w-2xl mx-auto">
+            <div className="max-w-2xl mx-auto pb-20">
                 <div className="mb-8 text-center mt-5">
                     <h1 className="text-3xl font-bold mb-2">Saral Revanta</h1>
                     <p className="text-muted-foreground">Register your visitor entry</p>
                 </div>
-                <Card className="p-3 md:p-8 shadow-lg pb-10">
+                <Card className="p-3 md:p-8 shadow-lg">
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {error && (
-                            <Alert variant="destructive">
+                            <Alert className="text-red-500" variant="destructive">
                                 <AlertCircle className="h-4 w-4" />
-                                <AlertDescription>{error}</AlertDescription>
+                                <AlertDescription className="!text-red-500">{error}</AlertDescription>
                             </Alert>
                         )}
 
                         {success && (
                             <Alert className="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800">
-                                <AlertDescription className="text-green-800 dark:text-green-200">✓ {success}</AlertDescription>
+                                <AlertDescription className="text-green-800 dark:text-green-200">✓ &nbsp;{success}</AlertDescription>
                             </Alert>
                         )}
 
                         {/* Selfie Capture Section */}
                         <div className="border-2 border-dashed border-border rounded-lg p-6 bg-background/50">
-                            <div className="flex flex-col items-center gap-4">
+                            <div className="flex flex-col items-center gap-2">
                                 <div className="relative w-28 h-28 rounded-full overflow-hidden border-4 border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
                                     {selfie && selfiePreviewUrl ? (
                                         <Image
