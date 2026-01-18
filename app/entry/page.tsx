@@ -1,0 +1,467 @@
+"use client"
+
+import type React from "react"
+
+import { useState, useRef, useEffect } from "react"
+import { apiClient } from "@/lib/api-client"
+import { uploadToImageKit } from "@/lib/imagekit"
+import { getMockResponse } from "@/lib/mock-api"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Loader2, Camera, AlertCircle, X, User, CheckCircle } from "lucide-react"
+import { ThemeToggle } from "@/components/theme-toggle"
+import Image from "next/image";
+
+// Configuration for blocks, floors, and flats
+const BLOCK_CONFIG = {
+    A: {
+        floors: 7,
+        flatsPerFloor: 4
+    },
+    B: {
+        floors: 7,
+        flatsPerFloor: 3
+    }
+};
+
+// Initial form data
+const INITIAL_FORM_DATA = {
+    block: "",
+    house: "",
+    name: "",
+    phone: "",
+    purpose: "",
+    vehicle: "",
+};
+
+export default function EntryPage() {
+    // Refs for video and canvas elements
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    // Define state variables
+    const [isLoading, setIsLoading] = useState(false);
+    const [showCamera, setShowCamera] = useState(false);
+    const [selfie, setSelfie] = useState<Blob | null>(null);
+    const [selfiePreviewUrl, setSelfiePreviewUrl] = useState<string>("");
+    const [selfieImageKitUrl, setSelfieImageKitUrl] = useState<string>("");
+    const [formData, setFormData] = useState(INITIAL_FORM_DATA);
+    
+    const [isUploadingToImageKit, setIsUploadingToImageKit] = useState(false);
+    const [error, setError] = useState("");
+    const [success, setSuccess] = useState("");
+
+    // Handle uploading selfie to ImageKit when selfie blob changes
+    const startCamera = async () => {
+        try {
+            if (!navigator.mediaDevices?.getUserMedia) {
+                setError("Camera not supported")
+                return
+            }
+
+            // Show video first
+            setShowCamera(true)
+
+            // Wait for React render
+            await new Promise((res) => setTimeout(res, 100))
+
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: "user",
+                    width: { ideal: 640 },
+                    height: { ideal: 640 },
+                },
+            })
+
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream
+                videoRef.current.muted = true
+                videoRef.current.playsInline = true
+                await videoRef.current.play()
+            }
+        } catch (err) {
+            console.error("Camera error:", err)
+            setError("Unable to access camera")
+            setShowCamera(false)
+        }
+    }
+
+    // Capture selfie from video stream
+    const captureSelfie = () => {
+        if (!videoRef.current || !canvasRef.current) return
+
+        const video = videoRef.current
+        const canvas = canvasRef.current
+        const ctx = canvas.getContext("2d")
+        if (!ctx) return
+
+        // Ensure video is ready
+        if (video.videoWidth === 0) {
+            setError("Camera not ready, try again")
+            return
+        }
+
+        // Set canvas size to video size
+        canvas.width = video.videoWidth
+        canvas.height = video.videoHeight
+
+        // Mirror fix (because video is mirrored)
+        ctx.save()
+        ctx.scale(-1, 1)
+        ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height)
+        ctx.restore()
+
+        canvas.toBlob(
+            (blob) => {
+                if (!blob) return
+
+                setSelfie(blob)
+                setSelfiePreviewUrl(URL.createObjectURL(blob))
+                stopCamera()
+            },
+            "image/jpeg",
+            0.9
+        )
+    }
+
+    // Stop camera and video stream
+    const stopCamera = () => {
+        if (videoRef.current?.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
+            stream.getTracks().forEach((track) => track.stop());
+            videoRef.current.srcObject = null;
+        }
+        setShowCamera(false);
+    }
+
+    // Retake selfie
+    const retakeSelfie = () => {
+        if (selfiePreviewUrl) {
+            URL.revokeObjectURL(selfiePreviewUrl);
+        }
+        setSelfie(null);
+        setSelfiePreviewUrl("");
+        setSelfieImageKitUrl("");
+    }
+
+    // Upload selfie to ImageKit when selfie blob changes
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setError("")
+        setSuccess("")
+
+        if (!selfie) {
+            setError("Please capture a selfie")
+            return
+        }
+
+        if (!formData.name.trim() || !formData.phone.trim() || !formData.purpose.trim()) {
+            setError("Please fill all required fields")
+            return
+        }
+
+        setIsLoading(true)
+
+        try {
+            const formDataObj = new FormData()
+            formDataObj.append("name", formData.name)
+            formDataObj.append("phone", formData.phone)
+            formDataObj.append("vehicle", formData.vehicle)
+            formDataObj.append("purpose", formData.purpose)
+
+            // Use ImageKit URL if available, otherwise use the blob
+            if (selfieImageKitUrl) {
+                formDataObj.append("selfie_url", selfieImageKitUrl)
+            } else {
+                formDataObj.append("selfie", selfie, "selfie.jpg")
+            }
+
+            const response = await apiClient.postFormDataPublic("/visitors/entry", formDataObj)
+
+            if (response.success) {
+                setSuccess("Visitor entry recorded successfully!")
+                // setFormData({
+                //     name: "",
+                //     phone: "",
+                //     vehicle: "",
+                //     purpose: "",
+                // })
+                setSelfie(null)
+                setSelfiePreviewUrl("")
+                setSelfieImageKitUrl("")
+
+                setTimeout(() => {
+                    setSuccess("")
+                }, 3000)
+            } else {
+                setError(response.message || "Failed to record visitor entry")
+            }
+        } catch (err) {
+            console.error("[v0] Submit error:", err)
+            setError(err instanceof Error ? err.message : "An error occurred")
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    // Generate list of houses
+    const generateHouses = (block: "A" | "B") => {
+        const config = BLOCK_CONFIG[block]
+        if (!config) return []
+
+        const houses: string[] = []
+
+        for (let floor = 1; floor <= config.floors; floor++) {
+            for (let flat = 1; flat <= config.flatsPerFloor; flat++) {
+                houses.push(`${floor}${String(flat).padStart(2, "0")}`)
+            }
+        }
+
+        return houses
+    }
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-4">
+            <div className="absolute top-4 right-4">
+                <ThemeToggle />
+            </div>
+            <div className="max-w-2xl mx-auto">
+                <div className="mb-8 text-center mt-5">
+                    <h1 className="text-3xl font-bold mb-2">Saral Revanta</h1>
+                    <p className="text-muted-foreground">Register a new visitor</p>
+                </div>
+                <Card className="p-6 md:p-8 shadow-lg">
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        {error && (
+                            <Alert variant="destructive">
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertDescription>{error}</AlertDescription>
+                            </Alert>
+                        )}
+
+                        {success && (
+                            <Alert className="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800">
+                                <AlertDescription className="text-green-800 dark:text-green-200">✓ {success}</AlertDescription>
+                            </Alert>
+                        )}
+
+                        {/* Selfie Capture Section */}
+                        <div className="border-2 border-dashed border-border rounded-lg p-6 bg-background/50">
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                                    {selfie && selfiePreviewUrl ? (
+                                        <Image
+                                            src={selfiePreviewUrl || "/placeholder.svg"}
+                                            alt="Captured selfie"
+                                            className="w-full h-full object-cover"
+                                            width={128}
+                                            height={128}
+                                        />
+                                    ) : showCamera ? (
+                                        <video
+                                            ref={videoRef}
+                                            autoPlay
+                                            playsInline
+                                            muted
+                                            className="w-full h-full object-cover scale-x-[-1]"
+                                        />
+
+                                    ) : (
+                                        <User className="w-16 h-16 text-slate-300 dark:text-slate-600" />
+                                    )}
+                                </div>
+
+                                {/* Hidden canvas for capture */}
+                                <canvas ref={canvasRef} className="hidden" width="320" height="240" />
+
+                                {/* Status Text */}
+                                <div className="text-center">
+                                    {selfie && selfiePreviewUrl ? (
+                                        <div>
+                                            <div className="text-green-600 dark:text-green-400 font-medium">Photo Captured</div>
+                                            {isUploadingToImageKit && (
+                                                <div className="text-sm text-blue-600 dark:text-blue-400 mt-1 flex items-center justify-center gap-1">
+                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                    Uploading to cloud...
+                                                </div>
+                                            )}
+                                            {selfieImageKitUrl && (
+                                                <div className="text-xs text-green-600 dark:text-green-400 mt-1">✓ Backed up to cloud</div>
+                                            )}
+                                        </div>
+                                    ) : showCamera ? (
+                                        <div className="text-blue-600 dark:text-blue-400 font-medium">Camera Ready - Click Capture</div>
+                                    ) : (
+                                        <div className="text-muted-foreground text-sm">Tap to capture visitor photo</div>
+                                    )}
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex gap-2 flex-wrap justify-center">
+                                    {selfie && selfiePreviewUrl ? (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={retakeSelfie}
+                                            disabled={isUploadingToImageKit}
+                                            className="flex items-center gap-2 bg-transparent"
+                                        >
+                                            <Camera className="w-4 h-4" />
+                                            Retake Photo
+                                        </Button>
+                                    ) : showCamera ? (
+                                        <>
+                                            <Button
+                                                type="button"
+                                                onClick={captureSelfie}
+                                                disabled={isUploadingToImageKit}
+                                                className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+                                            >
+                                                <Camera className="w-4 h-4" />
+                                                Capture
+                                            </Button>
+                                            <Button type="button" variant="outline" onClick={stopCamera}>
+                                                <X className="w-4 h-4" />
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        <Button
+                                            type="button"
+                                            onClick={startCamera}
+                                            disabled={isUploadingToImageKit}
+                                            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+                                        >
+                                            <Camera className="w-4 h-4" />
+                                            Start Camera
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="space-y-4">
+                            <h2 className="text-lg font-semibold">Visitor Information</h2>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className="text-sm font-medium">Choose Block</label>
+                                    <Select
+                                        value={formData.block}
+                                        onValueChange={(value) =>
+                                            setFormData({ ...formData, block: value, house: "" })
+                                        }
+                                    >
+                                        <SelectTrigger className="w-full text-sm mt-1">
+                                            <SelectValue placeholder="Select block" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="A">Block A</SelectItem>
+                                            <SelectItem value="B">Block B</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium">Choose House</label>
+                                    <Select
+                                        value={formData.house}
+                                        onValueChange={(value) =>
+                                            setFormData({ ...formData, house: value })
+                                        }
+                                        disabled={!formData.block}
+                                    >
+                                        <SelectTrigger className="w-full text-sm mt-1">
+                                            <SelectValue placeholder="Select house" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {formData.block &&
+                                                generateHouses(formData.block as "A" | "B").map((house) => (
+                                                    <SelectItem key={house} value={house}>
+                                                        {house}
+                                                    </SelectItem>
+                                                ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium">Full Name</label>
+                                <Input
+                                    placeholder="Full name"
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    disabled={isLoading}
+                                    required
+                                    className="mt-1 text-sm"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium">Mobile Number</label>
+                                <Input
+                                    placeholder="Mobile number"
+                                    value={formData.phone}
+                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                    disabled={isLoading}
+                                    required
+                                    className="mt-1 text-sm"
+                                    type="tel"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium">Purpose of Visit</label>
+                                <Select
+                                    value={formData.purpose}
+                                    onValueChange={(value) =>
+                                        setFormData({ ...formData, purpose: value, house: "" })
+                                    }
+                                >
+                                    <SelectTrigger className="w-full text-sm mt-1">
+                                        <SelectValue placeholder="Select purpose" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Guest">Guest</SelectItem>
+                                        <SelectItem value="Visit">Visit</SelectItem>
+                                        <SelectItem value="Parcel Delivery">Parcel Delivery</SelectItem>
+                                        <SelectItem value="Courier Delivery">Courier Delivery</SelectItem>
+                                        <SelectItem value="Food Delivery">Food Delivery</SelectItem>
+                                        <SelectItem value="Grocery Delivery">Grocery Delivery</SelectItem>
+                                        <SelectItem value="E-commerce Delivery">E-commerce Delivery</SelectItem>
+                                        <SelectItem value="Pickup">Pickup</SelectItem>
+                                        <SelectItem value="Emergency">Emergency</SelectItem>
+                                        <SelectItem value="Event/Function">Event / Function</SelectItem>
+                                        <SelectItem value="Other">Other</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium">Vehicle Number (optional)</label>
+                                <Input
+                                    placeholder="Vehicle number"
+                                    value={formData.vehicle}
+                                    onChange={(e) => setFormData({ ...formData, vehicle: e.target.value })}
+                                    disabled={isLoading}
+                                    className="mt-1 text-sm"
+                                />
+                            </div>
+                        </div>
+
+                        <Button
+                            type="submit"
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white text-base py-5"
+                            disabled={isLoading || !selfie}
+                            size="lg"
+                        >
+                            {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                            {!isLoading && <CheckCircle className="w-4 h-4" />}
+                            Submit Entry
+                        </Button>
+                    </form>
+                </Card>
+            </div>
+        </div>
+    )
+}
