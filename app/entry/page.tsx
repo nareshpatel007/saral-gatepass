@@ -1,18 +1,17 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useRef, useEffect } from "react"
-import { apiClient } from "@/lib/api-client"
-import { uploadToImageKit } from "@/lib/imagekit"
-import { getMockResponse } from "@/lib/mock-api"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2, Camera, AlertCircle, X, User, CheckCircle } from "lucide-react"
-import { ThemeToggle } from "@/components/theme-toggle"
+import type React from "react";
+import { useState, useRef } from "react";
+import { apiClient } from "@/lib/api-client";
+import { uploadToImageKit } from "@/lib/imagekit";
+import { getMockResponse } from "@/lib/mock-api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Camera, AlertCircle, X, User, CheckCircle } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 import Image from "next/image";
 
 // Configuration for blocks, floors, and flats
@@ -49,7 +48,7 @@ export default function EntryPage() {
     const [selfiePreviewUrl, setSelfiePreviewUrl] = useState<string>("");
     const [selfieImageKitUrl, setSelfieImageKitUrl] = useState<string>("");
     const [formData, setFormData] = useState(INITIAL_FORM_DATA);
-    
+
     const [isUploadingToImageKit, setIsUploadingToImageKit] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
@@ -147,64 +146,90 @@ export default function EntryPage() {
         setSelfieImageKitUrl("");
     }
 
+    const uploadSelfieToCloud = async (blob: Blob) => {
+        setIsUploadingToImageKit(true);
+        try {
+            // Create a file from the blob
+            const file = new File([blob], `selfie_${Date.now()}.jpg`, {
+                type: "image/jpeg",
+            });
+
+            // Generate file name
+            const fileName = `selfie_${Date.now()}.jpg`;
+
+            // Upload to ImageKit
+            const res: any = await uploadToImageKit(file, fileName);
+
+            // Return URL
+            return res.url || "";
+        } finally {
+            setIsUploadingToImageKit(false);
+        }
+    }
+
     // Upload selfie to ImageKit when selfie blob changes
     const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setError("")
-        setSuccess("")
+        e.preventDefault();
+        setError("");
+        setSuccess("");
 
+        // Validation checks
         if (!selfie) {
             setError("Please capture a selfie")
             return
         }
 
-        if (!formData.name.trim() || !formData.phone.trim() || !formData.purpose.trim()) {
+        // Validate form fields
+        if (!formData.name || !formData.phone || !formData.purpose) {
             setError("Please fill all required fields")
             return
         }
 
-        setIsLoading(true)
+        // All good, proceed
+        setIsLoading(true);
 
         try {
-            const formDataObj = new FormData()
-            formDataObj.append("name", formData.name)
-            formDataObj.append("phone", formData.phone)
-            formDataObj.append("vehicle", formData.vehicle)
-            formDataObj.append("purpose", formData.purpose)
+            // Upload selfie to ImageKit
+            const imageKitUrl = await uploadSelfieToCloud(selfie);
 
-            // Use ImageKit URL if available, otherwise use the blob
-            if (selfieImageKitUrl) {
-                formDataObj.append("selfie_url", selfieImageKitUrl)
-            } else {
-                formDataObj.append("selfie", selfie, "selfie.jpg")
+            // Store ImageKit URL
+            setSelfieImageKitUrl(imageKitUrl);
+
+            // Prepare API payload
+            const payload = {
+                ...formData,
+                selfie_url: imageKitUrl,
             }
 
-            const response = await apiClient.postFormDataPublic("/visitors/entry", formDataObj)
+            // API call to submit entry
 
-            if (response.success) {
-                setSuccess("Visitor entry recorded successfully!")
-                // setFormData({
-                //     name: "",
-                //     phone: "",
-                //     vehicle: "",
-                //     purpose: "",
-                // })
-                setSelfie(null)
-                setSelfiePreviewUrl("")
-                setSelfieImageKitUrl("")
+            // Set success message
+            setSuccess("Your entry has been submitted!");
 
-                setTimeout(() => {
-                    setSuccess("")
-                }, 3000)
-            } else {
-                setError(response.message || "Failed to record visitor entry")
-            }
+            // Cleanup selfie
+            cleanupSelfie();
+
+            // RESET FORM
+            setFormData(INITIAL_FORM_DATA);
+
+            // Clear success message after 3 seconds
+            setTimeout(() => setSuccess(""), 3000);
         } catch (err) {
-            console.error("[v0] Submit error:", err)
-            setError(err instanceof Error ? err.message : "An error occurred")
+            console.error("Submit error:", err);
+            setError(err instanceof Error ? err.message : "Something went wrong");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
+    }
+
+    const cleanupSelfie = () => {
+        if (selfiePreviewUrl) {
+            URL.revokeObjectURL(selfiePreviewUrl);
+        }
+
+        setSelfie(null);
+        setSelfiePreviewUrl("");
+        setSelfieImageKitUrl("");
     }
 
     // Generate list of houses
@@ -224,16 +249,16 @@ export default function EntryPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-4">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-2">
             <div className="absolute top-4 right-4">
                 <ThemeToggle />
             </div>
             <div className="max-w-2xl mx-auto">
                 <div className="mb-8 text-center mt-5">
                     <h1 className="text-3xl font-bold mb-2">Saral Revanta</h1>
-                    <p className="text-muted-foreground">Register a new visitor</p>
+                    <p className="text-muted-foreground">Register your visitor entry</p>
                 </div>
-                <Card className="p-6 md:p-8 shadow-lg">
+                <Card className="p-3 md:p-8 shadow-lg">
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {error && (
                             <Alert variant="destructive">
@@ -293,9 +318,9 @@ export default function EntryPage() {
                                             )}
                                         </div>
                                     ) : showCamera ? (
-                                        <div className="text-blue-600 dark:text-blue-400 font-medium">Camera Ready - Click Capture</div>
+                                        <div className="text-blue-600 dark:text-blue-400 font-medium">Camera is Ready - Click Capture</div>
                                     ) : (
-                                        <div className="text-muted-foreground text-sm">Tap to capture visitor photo</div>
+                                        <div className="text-muted-foreground text-sm">Tap to capture your photo</div>
                                     )}
                                 </div>
 
