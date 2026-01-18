@@ -303,67 +303,60 @@ export default function EntryPage() {
                                 <canvas ref={canvasRef} className="hidden" width="320" height="240" />
 
                                 {/* Status Text */}
-                                <div className="text-center">
-                                    {selfie && selfiePreviewUrl ? (
-                                        <div>
+                                {isLoading && (
+                                    <div className="text-center">
+                                        {selfie ? (
                                             <div className="text-green-600 dark:text-green-400 font-medium">Photo Captured</div>
-                                            {isUploadingToImageKit && (
-                                                <div className="text-sm text-blue-600 dark:text-blue-400 mt-1 flex items-center justify-center gap-1">
-                                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                                    Uploading to cloud...
-                                                </div>
-                                            )}
-                                            {selfieImageKitUrl && (
-                                                <div className="text-xs text-green-600 dark:text-green-400 mt-1">✓ Backed up to cloud</div>
-                                            )}
-                                        </div>
-                                    ) : showCamera ? (
-                                        <div className="text-blue-600 dark:text-blue-400 font-medium">Camera is Ready - Click Capture</div>
-                                    ) : (
-                                        <div className="text-muted-foreground text-sm">Tap to capture your photo</div>
-                                    )}
-                                </div>
+                                        ) : showCamera ? (
+                                            <div className="text-blue-600 dark:text-blue-400 font-medium">Click to capture your photo</div>
+                                        ) : (
+                                            <div className="text-muted-foreground text-sm">Tap to capture your photo</div>
+                                        )}
+                                    </div>
+                                )}
 
                                 {/* Action Buttons */}
-                                <div className="flex gap-2 flex-wrap justify-center">
-                                    {selfie && selfiePreviewUrl ? (
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={retakeSelfie}
-                                            disabled={isUploadingToImageKit}
-                                            className="flex items-center gap-2 bg-transparent"
-                                        >
-                                            <Camera className="w-4 h-4" />
-                                            Retake Photo
-                                        </Button>
-                                    ) : showCamera ? (
-                                        <>
+                                {!isLoading && (
+                                    <div className="flex gap-2 flex-wrap justify-center">
+                                        {selfie && selfiePreviewUrl ? (
                                             <Button
                                                 type="button"
-                                                onClick={captureSelfie}
+                                                variant="outline"
+                                                onClick={retakeSelfie}
                                                 disabled={isUploadingToImageKit}
-                                                className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+                                                className="flex items-center gap-2 bg-transparent"
                                             >
                                                 <Camera className="w-4 h-4" />
-                                                Capture
+                                                Retake Photo
                                             </Button>
-                                            <Button type="button" variant="outline" onClick={stopCamera}>
-                                                <X className="w-4 h-4" />
+                                        ) : showCamera ? (
+                                            <>
+                                                <Button
+                                                    type="button"
+                                                    onClick={captureSelfie}
+                                                    disabled={isUploadingToImageKit}
+                                                    className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+                                                >
+                                                    <Camera className="w-4 h-4" />
+                                                    Capture
+                                                </Button>
+                                                <Button type="button" variant="outline" onClick={stopCamera}>
+                                                    <X className="w-4 h-4" />
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            <Button
+                                                type="button"
+                                                onClick={startCamera}
+                                                disabled={isUploadingToImageKit}
+                                                className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+                                            >
+                                                <Camera className="w-4 h-4" />
+                                                Start Camera
                                             </Button>
-                                        </>
-                                    ) : (
-                                        <Button
-                                            type="button"
-                                            onClick={startCamera}
-                                            disabled={isUploadingToImageKit}
-                                            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
-                                        >
-                                            <Camera className="w-4 h-4" />
-                                            Start Camera
-                                        </Button>
-                                    )}
-                                </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="space-y-4">
