@@ -258,7 +258,7 @@ export default function EntryPage() {
                     <h1 className="text-3xl font-bold mb-2">Saral Revanta</h1>
                     <p className="text-muted-foreground">Register your visitor entry</p>
                 </div>
-                <Card className="p-3 md:p-8 shadow-lg">
+                <Card className="p-3 md:p-8 shadow-lg pb-10">
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {error && (
                             <Alert variant="destructive">
@@ -469,7 +469,7 @@ export default function EntryPage() {
 
                         <Button
                             type="submit"
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white text-base py-5"
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-5"
                             disabled={isLoading || !selfie}
                             size="lg"
                         >
