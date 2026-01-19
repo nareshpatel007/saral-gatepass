@@ -208,6 +208,9 @@ export default function EntryPage() {
                 cleanupSelfie();
                 setFormData(INITIAL_FORM_DATA);
 
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: "smooth" });
+
                 // Clear success message after 5 seconds
                 setTimeout(() => setSuccess(""), 5000);
             }
