@@ -2,9 +2,7 @@
 
 import type React from "react";
 import { useState, useRef } from "react";
-import { apiClient } from "@/lib/api-client";
 import { uploadBlobToImageKit } from "@/lib/imagekit";
-import { getMockResponse } from "@/lib/mock-api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -34,6 +32,7 @@ const INITIAL_FORM_DATA = {
     phone: "",
     purpose: "",
     vehicle: "",
+    selfie_url: ""
 };
 
 export default function EntryPage() {
@@ -194,22 +193,34 @@ export default function EntryPage() {
             }
 
             // API call to submit entry
+            const res = await fetch("/api/entry", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload),
+            });
+
+            // Check response
+            if (!res.ok) {
+                const errorText = await res.text();
+                setError(errorText || "Failed to submit entry");
+            }
 
             // Set success message
             setSuccess("Your entry has been submitted!");
 
-            // Cleanup selfie
+            // Cleanup selfie and reset form
             cleanupSelfie();
-
-            // RESET FORM
             setFormData(INITIAL_FORM_DATA);
 
             // Clear success message after 5 seconds
             setTimeout(() => setSuccess(""), 5000);
         } catch (err) {
-            console.error("Submit error:", err);
+            // Handle errors
             setError(err instanceof Error ? err.message : "Something went wrong");
         } finally {
+            // Finalize loading state
             setIsLoading(false);
         }
     }
