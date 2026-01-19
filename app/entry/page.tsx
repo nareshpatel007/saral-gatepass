@@ -430,7 +430,7 @@ export default function EntryPage() {
                                 <Select
                                     value={formData.purpose}
                                     onValueChange={(value) =>
-                                        setFormData({ ...formData, purpose: value, house: "" })
+                                        setFormData({ ...formData, purpose: value })
                                     }
                                 >
                                     <SelectTrigger className="w-full text-sm mt-1">
