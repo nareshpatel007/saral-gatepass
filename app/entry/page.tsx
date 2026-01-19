@@ -171,49 +171,63 @@ export default function EntryPage() {
             // Define variable for ImageKit URL
             let imageKitUrl = "";
 
-            // If already uploaded to ImageKit, skip upload
-            if (!selfieImageKitUrl) {
-                imageKitUrl = await uploadSelfieToCloud(selfie);
-                setSelfieImageKitUrl(imageKitUrl);
-            } else {
-                imageKitUrl = selfieImageKitUrl;
-            }
-
-            // API call to submit entry
-            const res = await fetch("/api/entry", {
+            // Send WhatsApp notification
+            await fetch("/api/whatsapp/send", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    block: formData.block,
-                    house: formData.house,
-                    name: formData.name,
-                    phone: formData.phone,
-                    purpose: formData.purpose,
-                    vehicle: formData.vehicle,
-                    selfie_url: imageKitUrl,
+                    phone: "919586557162",
+                    name: "Rahul Patel",
+                    purpose: "Delivery",
+                    house: "A-204",
                 }),
             });
 
-            // Check response
-            if (!res.ok) {
-                // Set error message
-                setError("Oops! Failed to submit entry");
-            } else {
-                // Set success message
-                setSuccess("Thanks! Your entry has been submitted!");
+            // If already uploaded to ImageKit, skip upload
+            // if (!selfieImageKitUrl) {
+            //     imageKitUrl = await uploadSelfieToCloud(selfie);
+            //     setSelfieImageKitUrl(imageKitUrl);
+            // } else {
+            //     imageKitUrl = selfieImageKitUrl;
+            // }
 
-                // Cleanup selfie and reset form
-                cleanupSelfie();
-                setFormData(INITIAL_FORM_DATA);
+            // // API call to submit entry
+            // const res = await fetch("/api/entry", {
+            //     method: "POST",
+            //     headers: {
+            //         "Content-Type": "application/json",
+            //     },
+            //     body: JSON.stringify({
+            //         block: formData.block,
+            //         house: formData.house,
+            //         name: formData.name,
+            //         phone: formData.phone,
+            //         purpose: formData.purpose,
+            //         vehicle: formData.vehicle,
+            //         selfie_url: imageKitUrl,
+            //     }),
+            // });
 
-                // Scroll to top
-                window.scrollTo({ top: 0, behavior: "smooth" });
+            // // Check response
+            // if (!res.ok) {
+            //     // Set error message
+            //     setError("Oops! Failed to submit entry");
+            // } else {
+            //     // Set success message
+            //     setSuccess("Thanks! Your entry has been submitted!");
 
-                // Clear success message after 5 seconds
-                setTimeout(() => setSuccess(""), 5000);
-            }
+            //     // Cleanup selfie and reset form
+            //     cleanupSelfie();
+            //     setFormData(INITIAL_FORM_DATA);
+
+            //     // Scroll to top
+            //     window.scrollTo({ top: 0, behavior: "smooth" });
+
+            //     // Clear success message after 5 seconds
+            //     setTimeout(() => setSuccess(""), 5000);
+            // }
         } catch (err) {
             // Handle errors
             setError(err instanceof Error ? err.message : "Something went wrong");
