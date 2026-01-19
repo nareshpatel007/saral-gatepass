@@ -142,20 +142,11 @@ export default function EntryPage() {
         }
         setSelfie(null);
         setSelfiePreviewUrl("");
-        setSelfieImageKitUrl("");
     }
 
     const uploadSelfieToCloud = async (blob: Blob) => {
-        setIsUploadingToImageKit(true);
-        try {
-            // Upload to ImageKit
-            const res: any = await uploadBlobToImageKit(blob);
-
-            // Return URL
-            return res.url || "";
-        } finally {
-            setIsUploadingToImageKit(false);
-        }
+        const response: any = await uploadBlobToImageKit(blob);
+        return response;
     }
 
     // Upload selfie to ImageKit when selfie blob changes
@@ -166,30 +157,26 @@ export default function EntryPage() {
 
         // Validation checks
         if (!selfie) {
-            setError("Please capture a selfie")
-            return
-        }
-
-        // Validate form fields
-        if (!formData.name || !formData.phone || !formData.purpose) {
-            setError("Please fill all required fields")
-            return
+            setError("Please capture your selfie");
+            return;
+        } else if (!formData.block || !formData.house || !formData.name || !formData.phone || !formData.purpose) {
+            setError("Please fill all required fields");
+            return;
         }
 
         // All good, proceed
         setIsLoading(true);
 
         try {
-            // Upload selfie to ImageKit
-            const imageKitUrl = await uploadSelfieToCloud(selfie);
+            // Define variable for ImageKit URL
+            let imageKitUrl = "";
 
-            // Store ImageKit URL
-            setSelfieImageKitUrl(imageKitUrl);
-
-            // Prepare API payload
-            const payload = {
-                ...formData,
-                selfie_url: imageKitUrl,
+            // If already uploaded to ImageKit, skip upload
+            if (!selfieImageKitUrl) {
+                imageKitUrl = await uploadSelfieToCloud(selfie);
+                setSelfieImageKitUrl(imageKitUrl);
+            } else {
+                imageKitUrl = selfieImageKitUrl;
             }
 
             // API call to submit entry
@@ -198,24 +185,32 @@ export default function EntryPage() {
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify(payload),
+                body: JSON.stringify({
+                    block: formData.block,
+                    house: formData.house,
+                    name: formData.name,
+                    phone: formData.phone,
+                    purpose: formData.purpose,
+                    vehicle: formData.vehicle,
+                    selfie_url: imageKitUrl,
+                }),
             });
 
             // Check response
             if (!res.ok) {
-                const errorText = await res.text();
-                setError(errorText || "Failed to submit entry");
+                // Set error message
+                setError("Oops! Failed to submit entry");
+            } else {
+                // Set success message
+                setSuccess("Thanks! Your entry has been submitted!");
+
+                // Cleanup selfie and reset form
+                cleanupSelfie();
+                setFormData(INITIAL_FORM_DATA);
+
+                // Clear success message after 5 seconds
+                setTimeout(() => setSuccess(""), 5000);
             }
-
-            // Set success message
-            setSuccess("Your entry has been submitted!");
-
-            // Cleanup selfie and reset form
-            cleanupSelfie();
-            setFormData(INITIAL_FORM_DATA);
-
-            // Clear success message after 5 seconds
-            setTimeout(() => setSuccess(""), 5000);
         } catch (err) {
             // Handle errors
             setError(err instanceof Error ? err.message : "Something went wrong");
@@ -237,19 +232,18 @@ export default function EntryPage() {
 
     // Generate list of houses
     const generateHouses = (block: "A" | "B") => {
-        const config = BLOCK_CONFIG[block]
-        if (!config) return []
-
-        const houses: string[] = []
-
+        const config = BLOCK_CONFIG[block];
+        if (!config) return [];
+        const houses: string[] = [];
         for (let floor = 1; floor <= config.floors; floor++) {
             for (let flat = 1; flat <= config.flatsPerFloor; flat++) {
                 houses.push(`${floor}${String(flat).padStart(2, "0")}`)
             }
         }
-
-        return houses
+        return houses;
     }
+
+    console.log(formData);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-2">
@@ -476,7 +470,7 @@ export default function EntryPage() {
                             disabled={isLoading || !selfie}
                             size="lg"
                         >
-                            {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                            {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                             {!isLoading && <CheckCircle className="w-4 h-4" />}
                             Submit Entry
                         </Button>

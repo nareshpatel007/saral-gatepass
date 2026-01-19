@@ -6,7 +6,7 @@ export async function POST(req: Request) {
 
     // Make API request
     const body = await req.json().catch(() => ({}));
-    const res = await fetch(`saral.sandboxtechnology.in/api/v1/nextjs/gate_entry/create`, {
+    const res = await fetch(`https://saral.sandboxtechnology.in/api/v1/nextjs/gate_entry/create`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",

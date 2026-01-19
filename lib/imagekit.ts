@@ -24,5 +24,5 @@ export async function uploadBlobToImageKit(blob: Blob): Promise<string> {
     const data = await res.json();
 
     // Return the URL
-    return data.url
+    return data.url || "";
 }
